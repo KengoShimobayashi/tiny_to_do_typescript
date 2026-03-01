@@ -4,7 +4,7 @@
   "description": "Create TinyToDo app with typescript",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.tsx",
+    "dev": "tsx server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
