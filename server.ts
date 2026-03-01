@@ -3,9 +3,9 @@ import http from "http";
 
 // ToDoリストのサンプルデータ
 const todoList = [
-  { id: 1, task: "Buy groceries", completed: false },
-  { id: 2, task: "Learn TypeScript", completed: true },
-  { id: 3, task: "Build a web server", completed: false },
+  { task: "Buy groceries", completed: false },
+  { task: "Learn TypeScript", completed: true },
+  { task: "Build a web server", completed: false },
 ];
 
 const handleRoot = async (res: http.ServerResponse) => {
@@ -53,6 +53,59 @@ const createTodoList = (
     .join("");
 };
 
+const handleAdd = async (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) => {
+  try {
+    const formData = await parseFormData(req);
+
+    todoList.push({
+      task: formData.todo ?? "Untitled Task",
+      completed: false,
+    });
+
+    handleTodo(res);
+  } catch (error) {
+    res.writeHead(400, { "Content-Type": "text/plain" });
+    res.end("Bad Request");
+  }
+};
+
+const parseFormData = (
+  req: http.IncomingMessage,
+): Promise<Record<string, string>> => {
+  return new Promise((resolve, reject) => {
+    let body = "";
+
+    // データを受信するたびに呼ばれる
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    // すべてのデータを受信し終わったら呼ばれる
+    req.on("end", () => {
+      try {
+        // application/x-www-form-urlencoded形式をパース
+        const params = new URLSearchParams(body);
+        const formData: Record<string, string> = {};
+
+        params.forEach((value, key) => {
+          formData[key] = value;
+        });
+
+        resolve(formData);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    req.on("error", (error) => {
+      reject(error);
+    });
+  });
+};
+
 const getContentType = (filePath: string): string => {
   if (filePath.endsWith(".css")) return "text/css";
   if (filePath.endsWith(".js")) return "application/javascript";
@@ -83,6 +136,8 @@ const server = http.createServer(async (req, res) => {
     await handleRoot(res);
   } else if (url === "/todo" && method === "GET") {
     await handleTodo(res);
+  } else if (url === "/add" && method === "POST") {
+    await handleAdd(req, res);
   } else if (url && method === "GET") {
     const filePath = url.substring(1);
     await handleStatic(res, filePath);
