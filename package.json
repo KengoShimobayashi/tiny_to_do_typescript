@@ -1,0 +1,19 @@
+{
+  "name": "tiny_to_do_typescript",
+  "version": "1.0.0",
+  "description": "Create TinyToDo app with typescript",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.tsx",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.3.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
