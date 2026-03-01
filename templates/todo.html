@@ -10,6 +10,10 @@
       <h1>Tiny ToDo</h1>
     </header>
     <main>
+      <form method="post" action="add"> <!--1-->
+        <input type="text" name="todo" placeholder="Add a new todo" />
+        <button type="submit">Add</button>
+      </form>
       <ul class="todo-list">
         {{todoItems}}
       </ul>
