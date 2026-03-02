@@ -65,11 +65,16 @@ const handleAdd = async (
       completed: false,
     });
 
-    handleTodo(res);
+    redirectToTodo(res);
   } catch (error) {
     res.writeHead(400, { "Content-Type": "text/plain" });
     res.end("Bad Request");
   }
+};
+
+const redirectToTodo = (res: http.ServerResponse) => {
+  res.writeHead(303, { Location: "/todo" });
+  res.end();
 };
 
 const parseFormData = (
