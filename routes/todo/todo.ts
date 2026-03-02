@@ -1,14 +1,16 @@
 import fs from "fs/promises";
 import http from "http";
+import { ensureSession } from "../../externals/session/session.ts";
 
 // ToDoリストのサンプルデータ
-const todoList = [
-  { task: "Buy groceries", completed: false },
-  { task: "Learn TypeScript", completed: true },
-  { task: "Build a web server", completed: false },
-];
+const todoList = new Map<string, { task: string; completed: boolean }[]>();
+// [
+//   { task: "Buy groceries", completed: false },
+//   { task: "Learn TypeScript", completed: true },
+//   { task: "Build a web server", completed: false },
+// ];
 
-const createTodoList = (todos: { task: string; completed: boolean }[]) => {
+const createTodoListDom = (todos: { task: string; completed: boolean }[]) => {
   return todos
     .map(
       (todo) => `
@@ -21,6 +23,15 @@ const createTodoList = (todos: { task: string; completed: boolean }[]) => {
   `,
     )
     .join("");
+};
+
+const createTodoList = (sessionId: string) => {
+  const todoList = getTodoList(sessionId);
+  return createTodoListDom(todoList);
+};
+
+const getTodoList = (sessionId: string) => {
+  return todoList.get(sessionId) || [];
 };
 
 const redirectToTodo = (res: http.ServerResponse) => {
@@ -62,13 +73,22 @@ const parseFormData = (
   });
 };
 
-export const handleTodo = async (res: http.ServerResponse) => {
+export const handleTodo = async (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) => {
   try {
+    const sessionId = ensureSession(req, res);
+
+    if (!sessionId) {
+      throw new Error("Failed to create session");
+    }
+
     // ① HTMLを文字列で読む
     let html = await fs.readFile("./pages/todo/index.html", "utf-8");
 
     // ② 書き換える
-    html = html.replace("{{todoItems}}", createTodoList(todoList));
+    html = html.replace("{{todoItems}}", createTodoList(sessionId));
 
     // ③ 返す
     res.writeHead(200, { "Content-Type": "text/html" });
@@ -84,12 +104,23 @@ export const handleAdd = async (
   res: http.ServerResponse,
 ) => {
   try {
-    const formData = await parseFormData(req);
+    const sessionId = ensureSession(req, res);
 
-    todoList.push({
+    if (!sessionId) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Internal Server Error");
+      return;
+    }
+
+    const formData = await parseFormData(req);
+    const todos = getTodoList(sessionId);
+
+    todos.push({
       task: formData.todo ?? "Untitled Task",
       completed: false,
     });
+
+    todoList.set(sessionId, todos);
 
     redirectToTodo(res);
   } catch (error) {

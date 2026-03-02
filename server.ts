@@ -32,7 +32,7 @@ const server = http.createServer(async (req, res) => {
   if (url === "/" && method === "GET") {
     await handleRoot(res);
   } else if (url === "/todo" && method === "GET") {
-    await handleTodo(res);
+    await handleTodo(req, res);
   } else if (url === "/add" && method === "POST") {
     await handleAdd(req, res);
   } else if (url && method === "GET") {
