@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import http from "http";
+import { handleCreateUserAccount } from "./routes/createAccount/pageCreateAccount.ts";
 import { handleRoot } from "./routes/home.ts";
 import { handleLogin } from "./routes/login/pageLogin.ts";
 import { handleAdd, handleTodo } from "./routes/todo/todo.ts";
@@ -38,6 +39,8 @@ const server = http.createServer(async (req, res) => {
     await handleAdd(req, res);
   } else if (url === "/login") {
     await handleLogin(req, res);
+  } else if (url === "/create-user-account") {
+    await handleCreateUserAccount(req, res);
   } else if (url && method === "GET") {
     const filePath = url.substring(1);
     await handleStatic(res, filePath);
