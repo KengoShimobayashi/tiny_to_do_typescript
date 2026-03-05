@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import http from "http";
 import { handleRoot } from "./routes/home.ts";
+import { handleLogin } from "./routes/login/pageLogin.ts";
 import { handleAdd, handleTodo } from "./routes/todo/todo.ts";
 
 const getContentType = (filePath: string): string => {
@@ -35,6 +36,8 @@ const server = http.createServer(async (req, res) => {
     await handleTodo(req, res);
   } else if (url === "/add" && method === "POST") {
     await handleAdd(req, res);
+  } else if (url === "/login") {
+    await handleLogin(req, res);
   } else if (url && method === "GET") {
     const filePath = url.substring(1);
     await handleStatic(res, filePath);
