@@ -1,6 +1,8 @@
 import type { UserAccount } from "../types/UserAccount.ts";
 import {
+  ErrAccountExpired,
   ErrInvalidUserIdFormat,
+  ErrLoginFailed,
   ErrUserAlreadyExists,
 } from "../types/UserAccountErrors.ts";
 
@@ -27,6 +29,17 @@ const createUserAccount = (
   };
 };
 
+const checkAuthentication = (
+  account: UserAccount,
+  password: string,
+): boolean => {
+  return account.hashedPassword === password; //Buffer.from(password).toString("base64");
+};
+
+const checkExpired = (expires: Date): boolean => {
+  return expires < new Date();
+};
+
 export const newUserAccount = ({
   userId,
   password,
@@ -51,4 +64,23 @@ export const newUserAccount = ({
   console.log(`user account created : ${userId}`);
 
   return userAccount;
+};
+
+export const authenticate = (userId: string, password: string): UserAccount => {
+  const account = userAccounts.get(userId);
+
+  if (!account) {
+    throw ErrLoginFailed;
+  }
+
+  if (!checkAuthentication(account, password)) {
+    throw ErrLoginFailed;
+  }
+
+  if (checkExpired(account.expires)) {
+    userAccounts.delete(userId);
+    throw ErrAccountExpired;
+  }
+
+  return account;
 };

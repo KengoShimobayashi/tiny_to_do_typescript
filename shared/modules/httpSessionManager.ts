@@ -103,7 +103,7 @@ const setCookie = (res: http.ServerResponse, session: httpSession) => {
   res.removeHeader("Set-Cookie");
 
   // 新しいセッションIDを設定
-  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;${session.useSecureCookie ? "Secure;" : ""}xpires=${session.Expires};Path=/;`;
+  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;${session.useSecureCookie ? "Secure;" : ""};Expires=${session.Expires};Path=/;`;
 
   res.setHeader("Set-Cookie", cookie);
 };
@@ -172,4 +172,14 @@ export const checkSession = (
   res.writeHead(303, { Location: "/login" });
   res.end();
   return session;
+};
+
+export const revokeSession = (res: http.ServerResponse, sessionId: string) => {
+  sessions.delete(sessionId);
+  console.log(`session revoked : ${sessionId}`);
+
+  // 新しいセッションIDを設定
+  const cookie = `${cookieSessionId}=${sessionId};HttpOnly;MaxAge:-1;`;
+
+  res.setHeader("Set-Cookie", cookie);
 };
