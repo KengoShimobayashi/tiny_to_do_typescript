@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import http from "http";
-import { ensureSession } from "../../externals/session/session.ts";
+import { ensureSession } from "../../externals/session/_session.ts";
+import { parseFormData } from "../../lib/formParser.ts";
 
 // ToDoリストのサンプルデータ
 const todoList = new Map<string, { task: string; completed: boolean }[]>();
@@ -37,40 +38,6 @@ const getTodoList = (sessionId: string) => {
 const redirectToTodo = (res: http.ServerResponse) => {
   res.writeHead(303, { Location: "/todo" });
   res.end();
-};
-
-const parseFormData = (
-  req: http.IncomingMessage,
-): Promise<Record<string, string>> => {
-  return new Promise((resolve, reject) => {
-    let body = "";
-
-    // データを受信するたびに呼ばれる
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
-
-    // すべてのデータを受信し終わったら呼ばれる
-    req.on("end", () => {
-      try {
-        // application/x-www-form-urlencoded形式をパース
-        const params = new URLSearchParams(body);
-        const formData: Record<string, string> = {};
-
-        params.forEach((value, key) => {
-          formData[key] = value;
-        });
-
-        resolve(formData);
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    req.on("error", (error) => {
-      reject(error);
-    });
-  });
 };
 
 export const handleTodo = async (

@@ -1,15 +1,15 @@
 import fs from "fs/promises";
 import http from "http";
-import { ensureSession } from "../../externals/session/session.ts";
+import { ensureSession } from "../../shared/modules/httpSessionManager.ts";
+import type { httpSession } from "../../shared/types/httpSession.ts";
 
 const showLogin = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
+  session: httpSession,
 ) => {
   try {
-    const sessionId = ensureSession(req, res);
-
-    if (!sessionId) {
+    if (!session.sessionId) {
       throw new Error("Failed to create session");
     }
 
@@ -30,10 +30,11 @@ export const handleLogin = (
   res: http.ServerResponse,
 ) => {
   const method = req.method;
+  const session = ensureSession(req, res);
 
   switch (method) {
     case "GET":
-      showLogin(req, res);
+      showLogin(req, res, session);
       break;
 
     default:
