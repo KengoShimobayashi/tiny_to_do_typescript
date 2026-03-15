@@ -32,14 +32,6 @@ const showLogin = async (
   }
 };
 
-const saveUserIdToCookie = (
-  res: http.ServerResponse,
-  account: { id: string; expires: Date },
-) => {
-  const cookie = `tinyToDoUserId=${account.id};HttpOnly;Secure;Expires=${new Date(Date.now() + 60 * 60 * 1000)};Path=/;`;
-  res.setHeader("Set-Cookie", cookie);
-};
-
 const login = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -49,16 +41,29 @@ const login = async (
   const userId = formData.userId ?? "";
   const password = formData.password ?? "";
 
-  revokeSession(res, session.sessionId);
-  const newSession = startSession(res);
+  // 古いセッションを削除（Cookie文字列を取得）
+  const revokeCookie = revokeSession(session.sessionId);
+
+  // 新しいセッションを開始（Cookie文字列を取得）
+  const { session: newSession, cookie: sessionCookie } = startSession();
 
   try {
     console.log(`login attempt : ${userId}`);
     const account = authenticate(userId, password);
     newSession.UserAccount = account;
-    saveUserIdToCookie(res, account);
+
+    // ユーザーIDのCookie
+    const userIdCookie = `tinyToDoUserId=${account.id};HttpOnly;Secure;Expires=${new Date(Date.now() + 60 * 60 * 1000).toUTCString()};Path=/;`;
 
     console.log(`login success : ${userId}`);
+
+    // すべてのCookieを配列で一度に設定
+    res.setHeader("Set-Cookie", [
+      revokeCookie,      // 古いセッション削除
+      sessionCookie,     // 新しいセッション
+      userIdCookie       // ユーザーID
+    ]);
+
     res.writeHead(303, { Location: "/todo" });
     res.end();
     return;
@@ -75,6 +80,12 @@ const login = async (
         errorMessage: "ユーザーIDまたはパスワードが正しくありません。",
       };
     }
+
+    // エラー時も複数のCookieを設定
+    res.setHeader("Set-Cookie", [
+      revokeCookie,      // 古いセッション削除
+      sessionCookie      // 新しいセッション
+    ]);
 
     res.writeHead(303, { Location: "/login" });
     res.end();

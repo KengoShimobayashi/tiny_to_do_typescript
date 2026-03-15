@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import http from "http";
 import { ensureSession } from "../../externals/session/_session.ts";
 import { parseFormData } from "../../lib/formParser.ts";
+import { checkSession } from "../../shared/modules/httpSessionManager.ts";
+import type { httpSession } from "../../shared/types/httpSession.ts";
 
 // ToDoリストのサンプルデータ
 const todoList = new Map<string, { task: string; completed: boolean }[]>();
@@ -40,22 +42,53 @@ const redirectToTodo = (res: http.ServerResponse) => {
   res.end();
 };
 
+const isAuthenticated = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  session: httpSession,
+) => {
+  if (session.UserAccount) {
+    return true;
+  }
+
+  console.log(`not authenticated ${session.sessionId}`);
+
+  session.PageDate = {
+    ErrorMessage: "未ログインです。",
+  };
+
+  res.writeHead(303, { Location: "/login" });
+  res.end();
+  return false;
+};
+
 export const handleTodo = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ) => {
   try {
-    const sessionId = ensureSession(req, res);
+    console.log(`handle todo : ${req.method} ${req.url}`);
+    const session = checkSession(req, res);
 
-    if (!sessionId) {
-      throw new Error("Failed to create session");
+    console.log(`session check passed : ${session.sessionId}`);
+    if (!isAuthenticated(req, res, session)) {
+      console.log(`authentication failed : ${session.sessionId}`);
+      res.end();
+      return;
     }
+
+    console.log(`show todo page : ${session.sessionId}`);
 
     // ① HTMLを文字列で読む
     let html = await fs.readFile("./pages/todo/index.html", "utf-8");
 
     // ② 書き換える
-    html = html.replace("{{todoItems}}", createTodoList(sessionId));
+    html = html.replace("{{todoItems}}", createTodoList(session.sessionId));
+    html = html.replace("{{userId}}", session.UserAccount?.id || "");
+    html = html.replace(
+      "{{expires}}",
+      session.UserAccount?.expires.toString() || "",
+    );
 
     // ③ 返す
     res.writeHead(200, { "Content-Type": "text/html" });

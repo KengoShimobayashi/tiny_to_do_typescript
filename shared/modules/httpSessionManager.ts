@@ -29,7 +29,8 @@ const parseCookies = (
 
   cookieHeader.split(";").forEach((cookie) => {
     const [key, value] = cookie.trim().split("=");
-    if (key && value) {
+    // まだ存在しない場合のみ設定（最初の値を優先）
+    if (key && value && !cookies[key]) {
       cookies[key] = value;
     }
   });
@@ -38,6 +39,8 @@ const parseCookies = (
 };
 
 const getSession = (sessionId: string): httpSession => {
+  console.log(sessionId, sessions);
+
   if (sessions.has(sessionId)) {
     const session = sessions.get(sessionId)!;
 
@@ -55,6 +58,8 @@ const getSession = (sessionId: string): httpSession => {
 };
 
 const getValidSession = (req: http.IncomingMessage): httpSession => {
+  console.log(`getValidSession`);
+
   const cookies = req.headers.cookie;
 
   // cookieがなければ
@@ -67,8 +72,10 @@ const getValidSession = (req: http.IncomingMessage): httpSession => {
   if (!sessionId) throw ErrInvalidSessionId;
 
   try {
+    console.log(`succedd valid session`);
     return getSession(sessionId);
   } catch (err: any) {
+    console.log(`failed valid sesion : ${err}`);
     throw ErrSessionNotFound;
   }
 };
@@ -103,7 +110,7 @@ const setCookie = (res: http.ServerResponse, session: httpSession) => {
   res.removeHeader("Set-Cookie");
 
   // 新しいセッションIDを設定
-  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;${session.useSecureCookie ? "Secure;" : ""};Expires=${session.Expires};Path=/;`;
+  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;${session.useSecureCookie ? "Secure;" : ""}Expires=${session.Expires.toUTCString()};Path=/;`;
 
   res.setHeader("Set-Cookie", cookie);
 };
@@ -125,11 +132,13 @@ export const ensureSession = (
     return session;
   } catch (err: any) {
     console.log(`session check failed : ${err}`);
-    return startSession(res);
+    const { session, cookie } = startSession();
+    res.setHeader("Set-Cookie", cookie);
+    return session;
   }
 };
 
-export const startSession = (res: http.ServerResponse): httpSession => {
+export const startSession = (): { session: httpSession; cookie: string } => {
   let sessionId: string;
   while (true) {
     sessionId = makeSessionId();
@@ -139,47 +148,52 @@ export const startSession = (res: http.ServerResponse): httpSession => {
   }
 
   const session = newSession(sessionId);
-  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;Secure;Expires=${session.Expires};Path=/;`;
+  const cookie = `${cookieSessionId}=${session.sessionId};HttpOnly;Secure;Expires=${session.Expires.toUTCString()};Path=/;`;
 
-  res.setHeader("Set-Cookie", cookie);
   sessions.set(sessionId, session);
 
-  return session;
+  console.log(sessions);
+
+  return { session, cookie };
 };
 
 export const checkSession = (
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): httpSession => {
+  console.log(`check session : ${req.method} ${req.url}`);
   let session = getValidSession(req);
 
+  console.log(`after valid session`);
   if (session) {
+    console.log(`session check passed : ${session.sessionId}`);
     extendSession(session);
     setCookie(res, session);
     return session;
   }
 
-  session = startSession(res);
+  const { session: newSession, cookie } = startSession();
+  res.setHeader("Set-Cookie", cookie);
 
   const refer = req.headers.referer ?? "";
   if (refer === "") {
-    session.PageDate = {
+    newSession.PageDate = {
       errorMessage:
         "セッションの開始に失敗しました。リクエストのリファラーが不明です。",
     };
   }
 
+  console.log(`redirect to login`);
   res.writeHead(303, { Location: "/login" });
   res.end();
-  return session;
+  return newSession;
 };
 
-export const revokeSession = (res: http.ServerResponse, sessionId: string) => {
+export const revokeSession = (sessionId: string): string => {
   sessions.delete(sessionId);
   console.log(`session revoked : ${sessionId}`);
+  console.log(sessions);
 
-  // 新しいセッションIDを設定
-  const cookie = `${cookieSessionId}=${sessionId};HttpOnly;MaxAge:-1;`;
-
-  res.setHeader("Set-Cookie", cookie);
+  // 削除用のCookie文字列を返す（値は空、Max-Ageは0）
+  return `${cookieSessionId}=;HttpOnly;Secure;Max-Age=0;Path=/;`;
 };
