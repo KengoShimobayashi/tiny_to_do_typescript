@@ -1,6 +1,9 @@
 import fs from "fs/promises";
 import http from "http";
-import { ensureSession } from "../../externals/session/session.ts";
+import { ensureSession } from "../../externals/session/_session.ts";
+import { parseFormData } from "../../lib/formParser.ts";
+import { checkSession } from "../../shared/modules/httpSessionManager.ts";
+import type { httpSession } from "../../shared/types/httpSession.ts";
 
 // ToDoリストのサンプルデータ
 const todoList = new Map<string, { task: string; completed: boolean }[]>();
@@ -39,38 +42,24 @@ const redirectToTodo = (res: http.ServerResponse) => {
   res.end();
 };
 
-const parseFormData = (
+const isAuthenticated = (
   req: http.IncomingMessage,
-): Promise<Record<string, string>> => {
-  return new Promise((resolve, reject) => {
-    let body = "";
+  res: http.ServerResponse,
+  session: httpSession,
+) => {
+  if (session.UserAccount) {
+    return true;
+  }
 
-    // データを受信するたびに呼ばれる
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
+  console.log(`not authenticated ${session.sessionId}`);
 
-    // すべてのデータを受信し終わったら呼ばれる
-    req.on("end", () => {
-      try {
-        // application/x-www-form-urlencoded形式をパース
-        const params = new URLSearchParams(body);
-        const formData: Record<string, string> = {};
+  session.PageDate = {
+    ErrorMessage: "未ログインです。",
+  };
 
-        params.forEach((value, key) => {
-          formData[key] = value;
-        });
-
-        resolve(formData);
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    req.on("error", (error) => {
-      reject(error);
-    });
-  });
+  res.writeHead(303, { Location: "/login" });
+  res.end();
+  return false;
 };
 
 export const handleTodo = async (
@@ -78,17 +67,28 @@ export const handleTodo = async (
   res: http.ServerResponse,
 ) => {
   try {
-    const sessionId = ensureSession(req, res);
+    console.log(`handle todo : ${req.method} ${req.url}`);
+    const session = checkSession(req, res);
 
-    if (!sessionId) {
-      throw new Error("Failed to create session");
+    console.log(`session check passed : ${session.sessionId}`);
+    if (!isAuthenticated(req, res, session)) {
+      console.log(`authentication failed : ${session.sessionId}`);
+      res.end();
+      return;
     }
+
+    console.log(`show todo page : ${session.sessionId}`);
 
     // ① HTMLを文字列で読む
     let html = await fs.readFile("./pages/todo/index.html", "utf-8");
 
     // ② 書き換える
-    html = html.replace("{{todoItems}}", createTodoList(sessionId));
+    html = html.replace("{{todoItems}}", createTodoList(session.sessionId));
+    html = html.replace("{{userId}}", session.UserAccount?.id || "");
+    html = html.replace(
+      "{{expires}}",
+      session.UserAccount?.expires.toString() || "",
+    );
 
     // ③ 返す
     res.writeHead(200, { "Content-Type": "text/html" });
