@@ -1,0 +1,8 @@
+{
+  "name": "tinytodo-01-base",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts"
+  }
+}
